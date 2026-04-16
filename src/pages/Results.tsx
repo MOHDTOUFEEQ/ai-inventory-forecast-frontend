@@ -15,16 +15,17 @@ import {
 } from "recharts";
 import { usePredictionState } from "@/lib/prediction-store";
 import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function Results() {
-  const { result, runPrediction, loading } = usePredictionState();
+  const { result, loading, config } = usePredictionState();
+  const navigate = useNavigate();
 
-  // Auto-run if no result
   useEffect(() => {
     if (!result && !loading) {
-      runPrediction();
+      navigate("/forecast");
     }
-  }, []);
+  }, [loading, navigate, result]);
 
   if (!result) {
     return (
@@ -36,11 +37,13 @@ export default function Results() {
     );
   }
 
+  const histStart = Math.max(0, result.historicalDemand.length - result.forecastedDemand.length);
   const chartData = result.forecastedDemand.map((d, i) => ({
     day: `Day ${i + 1}`,
+    date: result.forecastDates[i] ?? `Day ${i + 1}`,
     forecast: d,
     stock: result.stockLevels[i],
-    historical: i < result.historicalDemand.length ? result.historicalDemand[i] : undefined,
+    historical: histStart + i < result.historicalDemand.length ? result.historicalDemand[histStart + i] : undefined,
   }));
 
   const cards = [
@@ -62,7 +65,7 @@ export default function Results() {
     },
     {
       title: "Reorder Recommendation",
-      value: `Reorder suggested in ${result.reorderDays} days`,
+      value: result.reorderRecommendation,
       icon: RefreshCw,
     },
   ];
@@ -94,6 +97,22 @@ export default function Results() {
           ))}
         </div>
 
+        <Card className="shadow-sm border-primary/20">
+          <CardHeader>
+            <CardTitle className="text-lg">AI Insight</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <p>
+              Forecast confidence is <span className="font-medium text-foreground">{(result.forecastConfidence * 100).toFixed(1)}%</span>.
+              Predicted demand averages <span className="font-medium text-foreground">{result.predictedDemand}</span> units/day, and stock
+              is projected to breach the reorder point in about{" "}
+              <span className="font-medium text-foreground">{result.reorderDays === null ? "N/A" : result.reorderDays}</span>{" "}
+              day(s).
+            </p>
+            <p>{result.reorderRecommendation}</p>
+          </CardContent>
+        </Card>
+
         {/* Forecast Chart */}
         <Card className="shadow-sm">
           <CardHeader>
@@ -103,7 +122,7 @@ export default function Results() {
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 13% 91%)" />
-                <XAxis dataKey="day" fontSize={12} />
+                <XAxis dataKey="date" fontSize={12} />
                 <YAxis fontSize={12} />
                 <Tooltip />
                 <Legend />
@@ -125,12 +144,12 @@ export default function Results() {
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 13% 91%)" />
-                <XAxis dataKey="day" fontSize={12} />
+                <XAxis dataKey="date" fontSize={12} />
                 <YAxis fontSize={12} />
                 <Tooltip />
                 <Legend />
                 <Line type="monotone" dataKey="stock" stroke="hsl(142 76% 36%)" strokeWidth={2} name="Stock Level" dot={false} />
-                <ReferenceLine y={100} stroke="hsl(0 84% 60%)" strokeDasharray="6 3" label="Reorder Point" />
+                <ReferenceLine y={config.reorderLevel} stroke="hsl(0 84% 60%)" strokeDasharray="6 3" label="Reorder Point" />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>

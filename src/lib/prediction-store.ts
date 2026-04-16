@@ -1,4 +1,6 @@
-import { useState, useCallback } from "react";
+import { createContext, createElement, useCallback, useContext, useState, type ReactNode } from "react";
+import { predict } from "@/lib/api/prediction";
+import { getReorderDay } from "@/lib/simulation-utils";
 
 export interface PredictionConfig {
   forecastHorizon: number;
@@ -11,55 +13,31 @@ export interface PredictionResult {
   predictedDemand: number;
   currentStock: number;
   shortageRisk: "safe" | "risk";
-  reorderDays: number;
+  reorderDays: number | null;
+  reorderRecommendation: string;
+  forecastConfidence: number;
   historicalDemand: number[];
   forecastedDemand: number[];
+  forecastDates: string[];
   stockLevels: number[];
 }
 
-// Simple moving average simulation for demo
-export function runLocalPrediction(
-  config: PredictionConfig,
-  data: number[]
-): PredictionResult {
-  const { forecastHorizon, initialStock, reorderLevel, windowSize } = config;
-  const w = Math.min(windowSize, data.length);
-  const recent = data.slice(-w);
-  const avgDemand = recent.reduce((a, b) => a + b, 0) / w;
+type PredictionState = {
+  file: File | null;
+  setFile: (f: File | null) => void;
+  config: PredictionConfig;
+  setConfig: (c: PredictionConfig) => void;
+  result: PredictionResult | null;
+  loading: boolean;
+  error: string | null;
+  runPrediction: () => Promise<boolean>;
+};
 
-  const forecasted: number[] = [];
-  const stockLevels: number[] = [];
-  let stock = initialStock;
-
-  for (let i = 0; i < forecastHorizon; i++) {
-    const noise = avgDemand * (0.9 + Math.random() * 0.2);
-    forecasted.push(Math.round(noise));
-    stock -= noise;
-    stockLevels.push(Math.round(stock));
-  }
-
-  const reorderDay = stockLevels.findIndex((s) => s <= reorderLevel);
-
-  return {
-    predictedDemand: Math.round(avgDemand),
-    currentStock: initialStock,
-    shortageRisk: reorderDay >= 0 && reorderDay <= 3 ? "risk" : "safe",
-    reorderDays: reorderDay >= 0 ? reorderDay + 1 : forecastHorizon,
-    historicalDemand: data.slice(-30),
-    forecastedDemand: forecasted,
-    stockLevels,
-  };
-}
-
-const SAMPLE_DATA = Array.from({ length: 60 }, () =>
-  Math.floor(40 + Math.random() * 30)
-);
-
-export function usePredictionState() {
+function usePredictionStateInternal(): PredictionState {
   const [file, setFile] = useState<File | null>(null);
   const [config, setConfig] = useState<PredictionConfig>({
     forecastHorizon: 14,
-    initialStock: 500,
+    initialStock: 300,
     reorderLevel: 100,
     windowSize: 7,
   });
@@ -71,16 +49,61 @@ export function usePredictionState() {
     setLoading(true);
     setError(null);
     try {
-      // Simulate API delay
-      await new Promise((r) => setTimeout(r, 1500));
-      const res = runLocalPrediction(config, SAMPLE_DATA);
-      setResult(res);
-    } catch {
-      setError("Prediction failed. Please check your inputs.");
+      // Backend expects snake_case fields (Flask /predict)
+      const res = await predict({
+        forecast_horizon: config.forecastHorizon,
+        initial_stock: config.initialStock,
+        reorder_point: config.reorderLevel,
+        window_size: config.windowSize,
+      }, file);
+
+      const predictedDemand =
+        res.forecast_values.length > 0
+          ? res.forecast_values.reduce((a, b) => a + b, 0) / res.forecast_values.length
+          : 0;
+      const reorderDays = getReorderDay(res.stock_levels, config.reorderLevel);
+      const used = res.used_parameters;
+      const currentStock = used?.initial_stock ?? config.initialStock;
+
+      setResult({
+        predictedDemand: Math.round(predictedDemand),
+        currentStock,
+        shortageRisk: res.shortage_risk ? "risk" : "safe",
+        reorderDays,
+        reorderRecommendation: res.reorder_recommendation,
+        forecastConfidence: res.forecast_confidence ?? 0,
+        historicalDemand: res.historical_demand ?? [],
+        forecastedDemand: res.forecast_values,
+        forecastDates: res.forecast_dates,
+        stockLevels: res.stock_levels,
+      });
+      return true;
+    } catch (e) {
+      const message =
+        e && typeof e === "object" && "message" in e
+          ? String((e as { message: unknown }).message)
+          : "Prediction failed. Please check your inputs.";
+      setError(message);
+      return false;
     } finally {
       setLoading(false);
     }
-  }, [config]);
+  }, [config, file]);
 
   return { file, setFile, config, setConfig, result, loading, error, runPrediction };
+}
+
+const PredictionContext = createContext<PredictionState | null>(null);
+
+export function PredictionProvider({ children }: { children: ReactNode }) {
+  const state = usePredictionStateInternal();
+  return createElement(PredictionContext.Provider, { value: state }, children);
+}
+
+export function usePredictionState(): PredictionState {
+  const ctx = useContext(PredictionContext);
+  if (!ctx) {
+    throw new Error("usePredictionState must be used within <PredictionProvider />");
+  }
+  return ctx;
 }

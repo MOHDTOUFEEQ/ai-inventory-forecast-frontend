@@ -10,7 +10,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           <header className="h-14 flex items-center border-b bg-card px-4 shadow-sm">
             <SidebarTrigger className="mr-4" />
             <h1 className="text-sm font-semibold text-foreground truncate">
-              AI-Based Material Shortage Prediction System
+              PredictWise AI - Material Shortage Prediction System
             </h1>
           </header>
           <main className="flex-1 p-6 overflow-auto">{children}</main>

@@ -7,6 +7,7 @@ import { Upload, Loader2 } from "lucide-react";
 import { usePredictionState } from "@/lib/prediction-store";
 import { useNavigate } from "react-router-dom";
 import { useRef } from "react";
+import { CustomInventorySimulationCard } from "@/components/CustomInventorySimulationCard";
 
 export default function Forecast() {
   const { file, setFile, config, setConfig, loading, error, runPrediction } = usePredictionState();
@@ -14,8 +15,10 @@ export default function Forecast() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleRun = async () => {
-    await runPrediction();
-    navigate("/results");
+    const ok = await runPrediction();
+    if (ok) {
+      navigate("/results");
+    }
   };
 
   return (
@@ -89,6 +92,9 @@ export default function Forecast() {
           {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Run Forecast
         </Button>
+
+        {/* Custom Inventory Simulation */}
+        <CustomInventorySimulationCard />
       </div>
     </DashboardLayout>
   );

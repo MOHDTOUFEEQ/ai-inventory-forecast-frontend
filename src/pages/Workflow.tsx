@@ -1,32 +1,42 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Package, AlertTriangle, ShoppingCart, UserCheck, RefreshCw } from "lucide-react";
+import { Package, AlertTriangle, ShoppingCart, UserCheck, RefreshCw, LineChart, Boxes } from "lucide-react";
 
 const steps = [
   {
     icon: Package,
-    title: "Check Inventory",
-    desc: "System monitors current stock levels against configured thresholds in real-time.",
+    title: "Monitor Demand",
+    desc: "The system continuously tracks historical demand signals and inventory movement for each material.",
+  },
+  {
+    icon: LineChart,
+    title: "Predict Future Consumption",
+    desc: "Moving Average forecasting projects near-term demand using the selected window size and horizon.",
   },
   {
     icon: AlertTriangle,
     title: "Detect Shortage Risk",
-    desc: "AI model predicts future demand and identifies potential shortage scenarios.",
+    desc: "Projected stock is compared to the reorder threshold to identify upcoming shortage windows.",
   },
   {
     icon: ShoppingCart,
     title: "Trigger Reorder Process",
-    desc: "When stock is projected to fall below reorder level, an automated purchase order is initiated.",
+    desc: "If risk is detected, BPM rules create a reorder action proposal with quantity guidance.",
   },
   {
     icon: UserCheck,
     title: "Manager Approval",
-    desc: "Reorder request is routed to the supply chain manager for review and approval.",
+    desc: "The procurement manager reviews demand assumptions and confirms or adjusts the reorder action.",
+  },
+  {
+    icon: Boxes,
+    title: "Replenish Inventory",
+    desc: "Approved procurement replenishes stock and restores safety levels for business continuity.",
   },
   {
     icon: RefreshCw,
-    title: "Update Stock",
-    desc: "Once approved and received, inventory records are updated to reflect new stock levels.",
+    title: "Update System",
+    desc: "New stock and demand outcomes are fed back into the platform to improve future decisions.",
   },
 ];
 

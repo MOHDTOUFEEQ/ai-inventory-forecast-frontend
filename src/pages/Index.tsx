@@ -1,15 +1,92 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, Package, AlertTriangle, Brain } from "lucide-react";
-
-const stats = [
-  { title: "Avg Daily Demand", value: "52 units", icon: TrendingUp, color: "text-primary" },
-  { title: "Current Stock", value: "500 units", icon: Package, color: "text-muted-foreground" },
-  { title: "Shortage Alerts", value: "0 active", icon: AlertTriangle, color: "text-success" },
-  { title: "Model Accuracy", value: "94.2%", icon: Brain, color: "text-primary" },
-];
+import { TrendingUp, Package, AlertTriangle, Brain, CalendarDays } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { getDashboardSummary, type DashboardSummaryResponse } from "@/lib/api/dashboard";
 
 export default function Index() {
+  const [summary, setSummary] = useState<DashboardSummaryResponse | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () =>
+      getDashboardSummary()
+        .then((d) => {
+          if (!cancelled) setSummary(d);
+        })
+        .catch(() => {
+          if (!cancelled) setSummary(null);
+        });
+
+    load();
+    const id = window.setInterval(load, 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
+
+  const daysRemaining = useMemo(() => {
+    if (!summary) return null;
+    if (!summary.avg_daily_demand || summary.avg_daily_demand <= 0) return null;
+    return summary.current_stock / summary.avg_daily_demand;
+  }, [summary]);
+
+  const insight = useMemo(() => {
+    if (!summary) return "Run a forecast to see live insights.";
+    const avg = summary.avg_daily_demand ?? 0;
+    const stock = summary.current_stock ?? 0;
+    const days = daysRemaining ?? 0;
+    const risk = summary.shortage_risk_level === "high" ? "HIGH" : "LOW";
+    return `Demand average is ${avg.toFixed(2)} units per day. Current stock of ${stock.toFixed(
+      0
+    )} units will last ${days ? days.toFixed(1) : "N/A"} days. Shortage risk is ${risk}. Last forecast date: ${
+      summary.last_forecast_date ?? "N/A"
+    }.`;
+  }, [summary, daysRemaining]);
+
+  const stats = useMemo(
+    () => [
+      {
+        title: "Avg Daily Demand",
+        value: summary ? `${summary.avg_daily_demand.toFixed(2)} units/day` : "—",
+        icon: TrendingUp,
+        color: "text-primary",
+      },
+      {
+        title: "Current Stock",
+        value: summary ? `${summary.current_stock.toFixed(0)} units` : "—",
+        icon: Package,
+        color: "text-muted-foreground",
+      },
+      {
+        title: "Shortage Risk Level",
+        value: summary ? (summary.shortage_risk_level === "high" ? "High Risk" : "Low Risk") : "—",
+        icon: AlertTriangle,
+        color: summary && summary.shortage_risk_level === "high" ? "text-destructive" : "text-success",
+      },
+      {
+        title: "Forecast Confidence",
+        value: summary ? `${(summary.forecast_accuracy * 100).toFixed(1)}%` : "—",
+        icon: Brain,
+        color: "text-purple-600",
+      },
+      {
+        title: "Days Until Shortage",
+        value: summary && summary.days_until_shortage != null ? `${summary.days_until_shortage} days` : "N/A",
+        icon: AlertTriangle,
+        color: summary && summary.days_until_shortage != null && summary.days_until_shortage <= 7 ? "text-destructive" : "text-success",
+      },
+      {
+        title: "Last Forecast Date",
+        value: summary?.last_forecast_date ?? "—",
+        icon: CalendarDays,
+        color: "text-muted-foreground",
+      },
+    ],
+    [summary]
+  );
+
   return (
     <DashboardLayout>
       <div className="space-y-6 max-w-6xl">
@@ -20,7 +97,7 @@ export default function Index() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
           {stats.map((s) => (
             <Card key={s.title} className="shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -33,6 +110,15 @@ export default function Index() {
             </Card>
           ))}
         </div>
+
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg">AI Insight</CardTitle>
+          </CardHeader>
+          <CardContent className="text-muted-foreground">
+            <p>{insight}</p>
+          </CardContent>
+        </Card>
 
         <Card className="shadow-sm">
           <CardHeader>

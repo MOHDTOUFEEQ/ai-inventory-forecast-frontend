@@ -1,6 +1,5 @@
 import { LayoutDashboard, TrendingUp, BarChart3, GitBranch, Brain } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useLocation } from "react-router-dom";
 import {
   Sidebar,
   SidebarContent,
@@ -24,7 +23,6 @@ const items = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const location = useLocation();
 
   return (
     <Sidebar collapsible="icon">
@@ -32,16 +30,12 @@ export function AppSidebar() {
         <div className="p-4">
           {!collapsed && (
             <div className="flex items-center gap-2 mb-2">
-              <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-                <Brain className="h-4 w-4 text-primary-foreground" />
-              </div>
-              <span className="font-semibold text-sm text-foreground">AI Inventory</span>
+              <img src="/logo.svg" alt="PredictWise logo" className="h-8 w-8 rounded-lg" />
+              <span className="font-semibold text-sm text-foreground">PredictWise AI</span>
             </div>
           )}
           {collapsed && (
-            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center mx-auto">
-              <Brain className="h-4 w-4 text-primary-foreground" />
-            </div>
+            <img src="/logo.svg" alt="PredictWise logo" className="h-8 w-8 rounded-lg mx-auto" />
           )}
         </div>
         <SidebarGroup>
